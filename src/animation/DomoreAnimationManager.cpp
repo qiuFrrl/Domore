@@ -55,6 +55,7 @@ namespace robodesk
             if (playingBlank)
             {
                 _holdBlankUntilNextInput = false;
+                _waitingForHomeAnimationToFinish = false;
                 scheduleNextHome(nowMs);
             }
             return;
