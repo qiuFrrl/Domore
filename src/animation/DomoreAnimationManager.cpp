@@ -51,11 +51,11 @@ namespace robodesk
 
         if (_holdBlankUntilNextInput)
         {
-            const bool playingBlank = _player->currentClip() == &AnimationCatalog::get(AnimationId::Blank);
-            if (playingBlank)
+            if (!_player->isRunning())
             {
                 _holdBlankUntilNextInput = false;
                 _waitingForHomeAnimationToFinish = false;
+                playLoop(AnimationId::Blank);
                 scheduleNextHome(nowMs);
             }
             return;
