@@ -123,11 +123,7 @@ namespace robodesk
         {
             if (event.type == InputEventType::TapSequence)
             {
-                const uint8_t moves = event.tapCount == 0 ? 1 : event.tapCount;
-                for (uint8_t i = 0; i < moves; i++)
-                {
-                    _menu.next();
-                }
+                _menu.next();
             }
             else if (event.type == InputEventType::Hold || event.type == InputEventType::MenuHold)
             {
