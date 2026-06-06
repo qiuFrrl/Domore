@@ -68,7 +68,7 @@ namespace robodesk
     constexpr uint32_t WEATHER_RETRY_MS = 5UL * 60UL * 1000UL;
 
     constexpr uint16_t HOME_RANDOM_DELAY_MIN_MS = 1000;
-    constexpr uint16_t HOME_RANDOM_DELAY_MAX_MS = 10000;
+    constexpr uint16_t HOME_RANDOM_DELAY_MAX_MS = 5000;
     constexpr uint32_t BOOT_INTRO_LAST_FRAME_HOLD_MS = 2000;
     constexpr uint32_t BUTTON_INACTIVITY_SLEEP_MS = 2UL * 60UL * 1000UL;
     constexpr uint32_t LOW_BATTERY_ANIMATION_REMINDER_MS = 5UL * 60UL * 1000UL;

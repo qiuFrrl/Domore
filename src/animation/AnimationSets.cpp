@@ -6,17 +6,34 @@ namespace robodesk
     {
         const AnimationId DEFAULT_ANIMATIONS[] = {
             AnimationId::Smile,
-            AnimationId::Excited,
-            AnimationId::Love,
-            AnimationId::Sleepy,
+            AnimationId::Fast,
+            AnimationId::Distracted,
+            AnimationId::Buzzing,
+            AnimationId::Down,
+            AnimationId::Giggle,
+            AnimationId::Growing,
+            AnimationId::Left,
+            AnimationId::Right,
+            AnimationId::Playful,
+            AnimationId::Splash,
+            AnimationId::Spraying,
+            AnimationId::Surprised,
+            AnimationId::Smirk,
+            AnimationId::Shrink,
             AnimationId::Rain,
+            AnimationId::Serene,
+            AnimationId::Sick,
+            AnimationId::Sneeze,
+            AnimationId::Sparkle,
         };
 
         // Set enabled to true when you want these three slots to join the Domore idle pool.
         const TimeAnimationRule TIME_RULES[] = {
-            {false, 6, 9, AnimationId::Excited},
-            {false, 12, 14, AnimationId::Smile},
-            {false, 22, 6, AnimationId::Sleepy},
+            {true, 18, 8, AnimationId::Devil},
+            {true, 18, 8, AnimationId::Glowing},
+            {true, 18, 8, AnimationId::Menacing},
+            {true, 18, 8, AnimationId::Scared},
+            {true, 18, 8, AnimationId::Sobbing},
         };
 
         // Temperature uses Celsius x10, so 20.0 C is 200. Weather codes follow Open-Meteo.
@@ -24,6 +41,7 @@ namespace robodesk
             {false, -1000, 200, 0, 999, AnimationId::Sick},
             {false, 330, 1000, 0, 999, AnimationId::Sleepy},
             {false, -1000, 1000, 51, 99, AnimationId::Rain},
+
         };
 
         bool timeMatches(const TimeSnapshot &time, const TimeAnimationRule &rule)
