@@ -84,8 +84,8 @@ void DisplayManager::drawDomore(const AnimationPlayer &animation, const TimeSnap
 {
     (void)time;
     (void)weather;
+    (void)battery;
     animation.draw(_oled);
-    drawBatteryWarning(battery);
 }
 
 void DisplayManager::drawBoot(const AnimationPlayer &animation)
@@ -227,7 +227,10 @@ void DisplayManager::drawWifi(WifiScreenState state, uint32_t elapsedMs)
     }
     else if (state == WifiScreenState::Failed)
     {
-        drawCentered("Failed", 36);
+        drawCentered("Failed", 30);
+        _oled.setFont(u8g2_font_5x8_tf);
+        drawCentered("Tap to retry", 44);
+        drawCentered("Hold to menu", 54);
     }
 }
 

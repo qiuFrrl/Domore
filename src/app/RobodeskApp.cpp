@@ -164,6 +164,22 @@ namespace robodesk
             return;
         }
 
+        if (_screen == ScreenId::Wifi)
+        {
+            if (event.type == InputEventType::TapSequence)
+            {
+                _wifi.forceConnect();
+                _wifiScreenStartMs = nowMs;
+                _wifiFirebaseFetched = false;
+            }
+            else if (event.type == InputEventType::MenuHold)
+            {
+                _domoreAnimations.stopHome();
+                _screen = ScreenId::Menu;
+            }
+            return;
+        }
+
         if (event.type == InputEventType::MenuHold)
         {
             _domoreAnimations.stopHome();
