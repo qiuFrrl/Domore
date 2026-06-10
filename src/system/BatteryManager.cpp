@@ -6,59 +6,27 @@ namespace robodesk
 {
 void BatteryManager::begin()
 {
+    pinMode(BATTERY_ADC_PIN, INPUT);
     analogReadResolution(12);
-    analogSetPinAttenuation(BATTERY_PIN, ADC_11db);
-    readNow();
+    analogSetPinAttenuation(BATTERY_ADC_PIN, ADC_11db);
+    _status.voltage = readVoltage();
+    _status.valid = _status.voltage > 0.1f;
+    _status.low = _status.valid && _status.voltage <= BATTERY_LOW_VOLTAGE;
+    _status.critical = _status.valid && _status.voltage <= BATTERY_CRITICAL_VOLTAGE;
 }
 
 void BatteryManager::update(uint32_t nowMs)
 {
-    if (_lastReadAt != 0 && nowMs - _lastReadAt < BATTERY_READ_INTERVAL_MS)
+    if (_status.valid && nowMs - _lastReadAt < BATTERY_READ_INTERVAL_MS)
     {
         return;
     }
 
-    readNow();
-}
-
-bool BatteryManager::readNow()
-{
-    constexpr uint8_t sampleCount = 8;
-    uint32_t adcMvTotal = 0;
-
-    for (uint8_t i = 0; i < sampleCount; i++)
-    {
-        adcMvTotal += analogReadMilliVolts(BATTERY_PIN);
-        delayMicroseconds(200);
-    }
-
-    const float adcMv = static_cast<float>(adcMvTotal) / sampleCount;
-    const uint16_t batteryMv = static_cast<uint16_t>((adcMv * BATTERY_DIVIDER_RATIO) + 0.5f);
-
-    _lastReadAt = millis();
-    _status.valid = batteryMv >= BATTERY_VALID_MIN_MV;
-
-    if (!_status.valid)
-    {
-        _status.voltageMv = 0;
-        _status.percent = 0;
-        _status.low = false;
-        return false;
-    }
-
-    _status.voltageMv = batteryMv;
-    _status.percent = estimatePercent(batteryMv);
-
-    if (_status.low)
-    {
-        _status.low = batteryMv < BATTERY_RECOVER_MV;
-    }
-    else
-    {
-        _status.low = batteryMv <= BATTERY_LOW_MV;
-    }
-
-    return true;
+    _lastReadAt = nowMs;
+    _status.voltage = readVoltage();
+    _status.valid = _status.voltage > 0.1f;
+    _status.low = _status.valid && _status.voltage <= BATTERY_LOW_VOLTAGE;
+    _status.critical = _status.valid && _status.voltage <= BATTERY_CRITICAL_VOLTAGE;
 }
 
 const BatteryStatus &BatteryManager::status() const
@@ -66,45 +34,17 @@ const BatteryStatus &BatteryManager::status() const
     return _status;
 }
 
-uint8_t BatteryManager::estimatePercent(uint16_t voltageMv) const
+float BatteryManager::readVoltage() const
 {
-    if (voltageMv >= 4200)
+    uint32_t millivolts = 0;
+    for (uint8_t i = 0; i < BATTERY_SAMPLE_COUNT; i++)
     {
-        return 100;
-    }
-    if (voltageMv >= 4100)
-    {
-        return 90;
-    }
-    if (voltageMv >= 4000)
-    {
-        return 80;
-    }
-    if (voltageMv >= 3900)
-    {
-        return 65;
-    }
-    if (voltageMv >= 3800)
-    {
-        return 50;
-    }
-    if (voltageMv >= 3700)
-    {
-        return 35;
-    }
-    if (voltageMv >= 3600)
-    {
-        return 20;
-    }
-    if (voltageMv >= 3500)
-    {
-        return 10;
-    }
-    if (voltageMv >= 3400)
-    {
-        return 5;
+        millivolts += analogReadMilliVolts(BATTERY_ADC_PIN);
+        delay(2);
     }
 
-    return 0;
+    const float adcVolts = (millivolts / static_cast<float>(BATTERY_SAMPLE_COUNT)) / 1000.0f;
+    const float dividerRatio = (BATTERY_DIVIDER_TOP_OHMS + BATTERY_DIVIDER_BOTTOM_OHMS) / BATTERY_DIVIDER_BOTTOM_OHMS;
+    return adcVolts * dividerRatio;
 }
 }

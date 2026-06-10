@@ -2,9 +2,11 @@
 
 namespace robodesk
 {
+#include <Arduino.h>
+
 struct WifiCredential
 {
-    const char *ssid;
-    const char *password;
+    String ssid;
+    String password;
 };
 }

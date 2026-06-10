@@ -38,12 +38,11 @@ namespace robodesk
         _holdBlankUntilNextInput = false;
     }
 
-    void DomoreAnimationManager::updateHome(
-        uint32_t nowMs,
-        const TimeSnapshot &time,
-        const WeatherData &weather,
-        const BatteryStatus &battery)
-    {
+void DomoreAnimationManager::updateHome(
+    uint32_t nowMs,
+    const TimeSnapshot &time,
+    const WeatherData &weather)
+{
         if (!_homeEnabled || _player == nullptr)
         {
             return;
@@ -88,19 +87,7 @@ namespace robodesk
             return;
         }
 
-        if (battery.valid && battery.low)
-        {
-            const bool neverPlayedLowBattery = _lastLowBatteryAnimationAt == 0;
-            const bool reminderDue = nowMs - _lastLowBatteryAnimationAt >= LOW_BATTERY_ANIMATION_REMINDER_MS;
-            if (neverPlayedLowBattery || reminderDue)
-            {
-                _lastLowBatteryAnimationAt = nowMs;
-                playOneShot(AnimationSets::lowBatteryAnimation());
-                return;
-            }
-        }
-
-        if (nowMs < _nextHomeAnimationAt)
+    if (nowMs < _nextHomeAnimationAt)
         {
             return;
         }

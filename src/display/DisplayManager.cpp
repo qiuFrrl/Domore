@@ -38,7 +38,10 @@ void DisplayManager::render(
     const MenuManager &menu,
     const TimeSnapshot &time,
     const WeatherData &weather,
+    const BatteryStatus &battery,
     const BirthdayScene &birthday,
+    WifiScreenState wifiState,
+    uint32_t wifiElapsedMs,
     uint32_t nowMs)
 {
     _oled.clearBuffer();
@@ -60,9 +63,12 @@ void DisplayManager::render(
     case ScreenId::Birthday:
         drawBirthday(birthday, nowMs);
         break;
+    case ScreenId::Wifi:
+        drawWifi(wifiState, wifiElapsedMs);
+        break;
     case ScreenId::Domore:
     default:
-        drawDomore(animation, time, weather);
+        drawDomore(animation, time, weather, battery);
         break;
     }
 
@@ -74,11 +80,12 @@ U8G2 &DisplayManager::raw()
     return _oled;
 }
 
-void DisplayManager::drawDomore(const AnimationPlayer &animation, const TimeSnapshot &time, const WeatherData &weather)
+void DisplayManager::drawDomore(const AnimationPlayer &animation, const TimeSnapshot &time, const WeatherData &weather, const BatteryStatus &battery)
 {
     (void)time;
     (void)weather;
     animation.draw(_oled);
+    drawBatteryWarning(battery);
 }
 
 void DisplayManager::drawBoot(const AnimationPlayer &animation)
@@ -196,6 +203,34 @@ void DisplayManager::drawBirthday(const BirthdayScene &birthday, uint32_t nowMs)
     birthday.draw(_oled, nowMs);
 }
 
+void DisplayManager::drawWifi(WifiScreenState state, uint32_t elapsedMs)
+{
+    _oled.setFont(u8g2_font_6x10_tf);
+    _oled.drawStr(0, 9, "WIFI");
+    _oled.drawHLine(0, 12, DISPLAY_WIDTH);
+
+    _oled.setFont(u8g2_font_6x10_tf);
+    if (state == WifiScreenState::Loading)
+    {
+        uint8_t dots = (elapsedMs / 500) % 4;
+        char text[16];
+        snprintf(text, sizeof(text), "Connecting");
+        for (uint8_t i = 0; i < dots; i++)
+        {
+            strcat(text, ".");
+        }
+        drawCentered(text, 36);
+    }
+    else if (state == WifiScreenState::Connected)
+    {
+        drawCentered("Connected!", 36);
+    }
+    else if (state == WifiScreenState::Failed)
+    {
+        drawCentered("Failed", 36);
+    }
+}
+
 void DisplayManager::drawStatusBar(const TimeSnapshot &time, const WeatherData &weather)
 {
     _oled.setDrawColor(0);
@@ -211,6 +246,23 @@ void DisplayManager::drawStatusBar(const TimeSnapshot &time, const WeatherData &
         snprintf(text, sizeof(text), "%.0fC", weather.temperatureC);
         _oled.drawStr(103, 8, text);
     }
+}
+
+void DisplayManager::drawBatteryWarning(const BatteryStatus &battery)
+{
+    if (!battery.low)
+    {
+        return;
+    }
+
+    _oled.setFont(u8g2_font_5x8_tf);
+    _oled.setDrawColor(0);
+    _oled.drawBox(78, 0, 50, 10);
+    _oled.setDrawColor(1);
+
+    char text[16];
+    snprintf(text, sizeof(text), battery.critical ? "BAT %.1f!" : "BAT %.1f", battery.voltage);
+    _oled.drawStr(80, 8, text);
 }
 
 void DisplayManager::drawCentered(const char *text, int16_t y)

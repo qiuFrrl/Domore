@@ -6,6 +6,7 @@
 #include "display/AnimationPlayer.h"
 #include "display/BirthdayScene.h"
 #include "menu/MenuManager.h"
+#include "system/BatteryManager.h"
 #include "system/TimeManager.h"
 #include "system/WeatherManager.h"
 
@@ -18,7 +19,15 @@ enum class ScreenId : uint8_t
     Menu,
     Time,
     Weather,
-    Birthday
+    Birthday,
+    Wifi
+};
+
+enum class WifiScreenState : uint8_t
+{
+    Loading,
+    Connected,
+    Failed
 };
 
 class DisplayManager
@@ -34,20 +43,25 @@ public:
         const MenuManager &menu,
         const TimeSnapshot &time,
         const WeatherData &weather,
+        const BatteryStatus &battery,
         const BirthdayScene &birthday,
+        WifiScreenState wifiState,
+        uint32_t wifiElapsedMs,
         uint32_t nowMs);
 
     U8G2 &raw();
 
 private:
-    void drawDomore(const AnimationPlayer &animation, const TimeSnapshot &time, const WeatherData &weather);
+    void drawDomore(const AnimationPlayer &animation, const TimeSnapshot &time, const WeatherData &weather, const BatteryStatus &battery);
     void drawBoot(const AnimationPlayer &animation);
     void drawMenu(const MenuManager &menu);
     void drawTime(const TimeSnapshot &time);
     void drawWeather(const WeatherData &weather);
     void drawWeatherIcon(const WeatherData &weather, int16_t x, int16_t y);
     void drawBirthday(const BirthdayScene &birthday, uint32_t nowMs);
+    void drawWifi(WifiScreenState state, uint32_t elapsedMs);
     void drawStatusBar(const TimeSnapshot &time, const WeatherData &weather);
+    void drawBatteryWarning(const BatteryStatus &battery);
     void drawCentered(const char *text, int16_t y);
 
     U8G2_SH1106_128X64_NONAME_F_HW_I2C _oled;

@@ -36,7 +36,6 @@ AnimationId holdAnimation();
 AnimationId inactiveAnimation();
 AnimationId inactiveTapWakeAnimation();
 AnimationId inactiveHoldWakeAnimation();
-AnimationId lowBatteryAnimation();
 AnimationId birthdayFinalAnimation();
 }
 }

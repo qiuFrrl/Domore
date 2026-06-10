@@ -14,16 +14,19 @@ namespace robodesk
         _input.begin();
         _menu.begin();
         _location.begin();
+        _battery.begin();
         _wifi.begin(WIFI_CREDENTIALS, WIFI_CREDENTIAL_COUNT);
         _time.begin();
         _weather.begin();
-        _battery.begin();
         _domoreAnimations.begin(_animation);
 
         _screen = ScreenId::Boot;
         _bootStage = BootStage::Intro;
         _bootIntroFinishedAt = 0;
+        _birthdayCheckStartedAt = 0;
         _birthdayPlayedThisBoot = false;
+        _wifiScreenStartMs = 0;
+        _wifiFirebaseFetched = false;
         _animation.play(AnimationCatalog::get(AnimationId::Intro), 1, true);
     }
 
@@ -48,22 +51,40 @@ namespace robodesk
 
         if (_screen == ScreenId::Domore)
         {
-            _domoreAnimations.updateHome(nowMs, _time.snapshot(), _weather.data(), _battery.status());
+            _domoreAnimations.updateHome(nowMs, _time.snapshot(), _weather.data());
         }
         else if (_screen == ScreenId::Birthday)
         {
             updateBirthday(nowMs);
         }
+        else if (_screen == ScreenId::Wifi)
+        {
+            updateWifi(nowMs);
+        }
 
         if (_display.shouldRender(nowMs))
         {
+            WifiScreenState wifiState = WifiScreenState::Loading;
+            uint32_t wifiElapsedMs = 0;
+            if (_screen == ScreenId::Wifi) {
+                wifiElapsedMs = nowMs - _wifiScreenStartMs;
+                if (_wifi.isConnected()) {
+                    wifiState = (_wifiFirebaseFetched && wifiElapsedMs >= 5000) ? WifiScreenState::Connected : WifiScreenState::Loading;
+                } else {
+                    wifiState = (wifiElapsedMs >= 10000) ? WifiScreenState::Failed : WifiScreenState::Loading;
+                }
+            }
+
             _display.render(
                 _screen,
                 _animation,
                 _menu,
                 _time.snapshot(),
                 _weather.data(),
+                _battery.status(),
                 _birthday,
+                wifiState,
+                wifiElapsedMs,
                 nowMs);
         }
     }
@@ -91,16 +112,27 @@ namespace robodesk
         case BootStage::Excited:
             if (_animation.isFinished())
             {
-                _bootStage = BootStage::Done;
+                _birthdayCheckStartedAt = nowMs;
+                _bootStage = BootStage::BirthdayCheck;
+                _animation.play(AnimationCatalog::get(AnimationId::Blank), 0, true);
+            }
+            break;
+
+        case BootStage::BirthdayCheck:
+            if (!_time.snapshot().valid)
+            {
                 _time.syncNow();
-                if (shouldStartBirthday())
-                {
-                    startBirthday(nowMs);
-                }
-                else
-                {
-                    returnDomore(nowMs);
-                }
+            }
+
+            if (shouldStartBirthday())
+            {
+                _bootStage = BootStage::Done;
+                startBirthday(nowMs);
+            }
+            else if (_time.snapshot().valid || nowMs - _birthdayCheckStartedAt >= BIRTHDAY_BOOT_TIME_WAIT_MS)
+            {
+                _bootStage = BootStage::Done;
+                returnDomore(nowMs);
             }
             break;
 
@@ -182,10 +214,31 @@ namespace robodesk
             _animation.stop();
             _screen = ScreenId::Weather;
             break;
+        case MenuAction::ShowWifi:
+            _domoreAnimations.stopHome();
+            _animation.stop();
+            _screen = ScreenId::Wifi;
+            _wifiScreenStartMs = millis();
+            _wifiFirebaseFetched = false;
+            if (!_wifi.isConnected())
+            {
+                _wifi.forceConnect();
+            }
+            break;
         case MenuAction::ShowDomore:
         default:
             returnDomore(millis());
             break;
+        }
+    }
+
+    void RobodeskApp::updateWifi(uint32_t nowMs)
+    {
+        uint32_t elapsed = nowMs - _wifiScreenStartMs;
+        if (_wifi.isConnected() && !_wifiFirebaseFetched && elapsed > 100)
+        {
+            _firebase.fetchWifi(_wifi);
+            _wifiFirebaseFetched = true;
         }
     }
 

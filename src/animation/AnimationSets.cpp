@@ -175,11 +175,6 @@ namespace robodesk
         return AnimationId::Encouragement;
     }
 
-    AnimationId AnimationSets::lowBatteryAnimation()
-    {
-        return AnimationId::Yawn;
-    }
-
     AnimationId AnimationSets::birthdayFinalAnimation()
     {
         return AnimationId::Love;

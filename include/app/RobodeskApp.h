@@ -14,6 +14,7 @@
 #include "system/TimeManager.h"
 #include "system/WeatherManager.h"
 #include "system/WifiManager.h"
+#include "system/FirebaseManager.h"
 
 namespace robodesk
 {
@@ -22,6 +23,7 @@ enum class BootStage : uint8_t
     Intro,
     IntroHold,
     Excited,
+    BirthdayCheck,
     Done
 };
 
@@ -39,6 +41,7 @@ private:
     void startBirthday(uint32_t nowMs);
     void updateBirthday(uint32_t nowMs);
     bool shouldStartBirthday() const;
+    void updateWifi(uint32_t nowMs);
 
     DisplayManager _display;
     AnimationPlayer _animation;
@@ -49,12 +52,16 @@ private:
     WifiManager _wifi;
     TimeManager _time;
     WeatherManager _weather;
-    BatteryManager _battery;
     LocationManager _location;
+    BatteryManager _battery;
+    FirebaseManager _firebase;
 
     ScreenId _screen = ScreenId::Boot;
     BootStage _bootStage = BootStage::Intro;
     uint32_t _bootIntroFinishedAt = 0;
+    uint32_t _birthdayCheckStartedAt = 0;
     bool _birthdayPlayedThisBoot = false;
+    uint32_t _wifiScreenStartMs = 0;
+    bool _wifiFirebaseFetched = false;
 };
 }

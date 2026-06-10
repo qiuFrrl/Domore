@@ -47,7 +47,7 @@ namespace robodesk
         Squint,        // tap count 3-5
         Surprised,     // default
         Swinging,      // tap count 12+
-        Yawn,          // low battery
+        Yawn,
         Count
     };
 
