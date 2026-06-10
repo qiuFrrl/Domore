@@ -66,6 +66,9 @@ void DisplayManager::render(
     case ScreenId::Wifi:
         drawWifi(wifiState, wifiElapsedMs);
         break;
+    case ScreenId::Battery:
+        drawBattery(battery);
+        break;
     case ScreenId::Domore:
     default:
         drawDomore(animation, time, weather, battery);
@@ -266,6 +269,51 @@ void DisplayManager::drawBatteryWarning(const BatteryStatus &battery)
     char text[16];
     snprintf(text, sizeof(text), battery.critical ? "BAT %.1f!" : "BAT %.1f", battery.voltage);
     _oled.drawStr(80, 8, text);
+}
+
+void DisplayManager::drawBattery(const BatteryStatus &battery)
+{
+    _oled.setFont(u8g2_font_6x10_tf);
+    _oled.drawStr(0, 9, "Battery");
+    _oled.drawHLine(0, 12, DISPLAY_WIDTH);
+
+    if (!battery.valid)
+    {
+        drawCentered("Reading...", 36);
+        return;
+    }
+
+    // Voltage text
+    char voltText[16];
+    snprintf(voltText, sizeof(voltText), "%.2f V", battery.voltage);
+    _oled.setFont(u8g2_font_7x14B_tf);
+    drawCentered(voltText, 30);
+
+    // Battery bar
+    const uint8_t barX = 14;
+    const uint8_t barY = 36;
+    const uint8_t barW = 100;
+    const uint8_t barH = 10;
+    _oled.drawFrame(barX, barY, barW, barH);
+    _oled.drawBox(barX + barW, barY + 2, 3, barH - 4);
+
+    // Map voltage to percentage (3.0V = 0%, 4.2V = 100%)
+    float pct = (battery.voltage - 3.0f) / (4.2f - 3.0f) * 100.0f;
+    if (pct < 0.0f) pct = 0.0f;
+    if (pct > 100.0f) pct = 100.0f;
+
+    uint8_t fillW = (uint8_t)((barW - 4) * pct / 100.0f);
+    if (fillW > 0)
+    {
+        _oled.drawBox(barX + 2, barY + 2, fillW, barH - 4);
+    }
+
+    // Status text
+    _oled.setFont(u8g2_font_6x10_tf);
+    const char *status = battery.critical ? "Critical!" : (battery.low ? "Low" : "Good");
+    char line[24];
+    snprintf(line, sizeof(line), "%d%% - %s", (int)pct, status);
+    drawCentered(line, 58);
 }
 
 void DisplayManager::drawCentered(const char *text, int16_t y)

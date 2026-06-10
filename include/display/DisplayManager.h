@@ -20,7 +20,8 @@ enum class ScreenId : uint8_t
     Time,
     Weather,
     Birthday,
-    Wifi
+    Wifi,
+    Battery
 };
 
 enum class WifiScreenState : uint8_t
@@ -60,6 +61,7 @@ private:
     void drawWeatherIcon(const WeatherData &weather, int16_t x, int16_t y);
     void drawBirthday(const BirthdayScene &birthday, uint32_t nowMs);
     void drawWifi(WifiScreenState state, uint32_t elapsedMs);
+    void drawBattery(const BatteryStatus &battery);
     void drawStatusBar(const TimeSnapshot &time, const WeatherData &weather);
     void drawBatteryWarning(const BatteryStatus &battery);
     void drawCentered(const char *text, int16_t y);

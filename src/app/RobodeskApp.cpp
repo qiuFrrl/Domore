@@ -241,6 +241,11 @@ namespace robodesk
                 _wifi.forceConnect();
             }
             break;
+        case MenuAction::ShowBattery:
+            _domoreAnimations.stopHome();
+            _animation.stop();
+            _screen = ScreenId::Battery;
+            break;
         case MenuAction::ShowDomore:
         default:
             returnDomore(millis());

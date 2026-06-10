@@ -9,6 +9,7 @@ const MenuItem MENU_ITEMS[] = {
     {"Time", MenuAction::ShowTime},
     {"Weather", MenuAction::ShowWeather},
     {"WIFI", MenuAction::ShowWifi},
+    {"Battery", MenuAction::ShowBattery},
 };
 }
 

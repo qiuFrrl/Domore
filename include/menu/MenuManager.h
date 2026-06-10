@@ -9,7 +9,8 @@ enum class MenuAction : uint8_t
     ShowDomore,
     ShowTime,
     ShowWeather,
-    ShowWifi
+    ShowWifi,
+    ShowBattery
 };
 
 struct MenuItem
