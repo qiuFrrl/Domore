@@ -63,5 +63,6 @@ private:
     bool _birthdayPlayedThisBoot = false;
     uint32_t _wifiScreenStartMs = 0;
     bool _wifiFirebaseFetched = false;
+    bool _displayInverted = false;
 };
 }

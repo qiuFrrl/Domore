@@ -10,6 +10,7 @@ const MenuItem MENU_ITEMS[] = {
     {"Weather", MenuAction::ShowWeather},
     {"WIFI", MenuAction::ShowWifi},
     {"Battery", MenuAction::ShowBattery},
+    {"Invert", MenuAction::ToggleInvert},
 };
 }
 

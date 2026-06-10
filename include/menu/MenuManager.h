@@ -10,7 +10,8 @@ enum class MenuAction : uint8_t
     ShowTime,
     ShowWeather,
     ShowWifi,
-    ShowBattery
+    ShowBattery,
+    ToggleInvert
 };
 
 struct MenuItem

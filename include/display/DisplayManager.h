@@ -38,6 +38,7 @@ public:
 
     void begin();
     bool shouldRender(uint32_t nowMs);
+    void setInvert(bool invert);
     void render(
         ScreenId screen,
         const AnimationPlayer &animation,

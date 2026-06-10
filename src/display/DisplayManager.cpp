@@ -32,6 +32,11 @@ bool DisplayManager::shouldRender(uint32_t nowMs)
     return true;
 }
 
+void DisplayManager::setInvert(bool invert)
+{
+    _oled.sendF("c", invert ? 0x0a7 : 0x0a6);
+}
+
 void DisplayManager::render(
     ScreenId screen,
     const AnimationPlayer &animation,
@@ -99,7 +104,11 @@ void DisplayManager::drawBoot(const AnimationPlayer &animation)
 void DisplayManager::drawMenu(const MenuManager &menu)
 {
     _oled.setFont(u8g2_font_6x10_tf);
-    _oled.drawStr(0, 9, "Menu");
+    
+    // Draw centered title
+    const char *title = "Menu";
+    int titleW = _oled.getStrWidth(title);
+    _oled.drawStr((DISPLAY_WIDTH - titleW) / 2, 9, title);
     _oled.drawHLine(0, 12, DISPLAY_WIDTH);
 
     const uint8_t visibleRows = 5;
@@ -109,18 +118,30 @@ void DisplayManager::drawMenu(const MenuManager &menu)
         start = menu.selectedIndex() - visibleRows + 1;
     }
 
+    // Scrollbar if needed
+    if (menu.count() > visibleRows)
+    {
+        uint8_t barH = (visibleRows * 48) / menu.count();
+        if (barH < 4) barH = 4;
+        uint8_t maxScroll = 48 - barH;
+        uint8_t barY = 14 + (menu.selectedIndex() * maxScroll) / (menu.count() - 1);
+        
+        _oled.drawRFrame(123, 14, 4, 48, 1);
+        _oled.drawRBox(124, barY + 1, 2, barH - 2, 1);
+    }
+
     for (uint8_t row = 0; row < visibleRows && start + row < menu.count(); row++)
     {
         const uint8_t itemIndex = start + row;
-        const int16_t y = 25 + row * 10;
+        const int16_t y = 24 + row * 10;
 
         if (itemIndex == menu.selectedIndex())
         {
-            _oled.drawBox(0, y - 8, DISPLAY_WIDTH, 10);
+            _oled.drawRBox(2, y - 8, DISPLAY_WIDTH - 10, 10, 2);
             _oled.setDrawColor(0);
         }
 
-        _oled.drawStr(4, y, menu.itemAt(itemIndex).label);
+        _oled.drawStr(6, y, menu.itemAt(itemIndex).label);
 
         if (itemIndex == menu.selectedIndex())
         {

@@ -2,6 +2,7 @@
 
 #include "config/AppConfig.h"
 #include "display/AnimationCatalog.h"
+#include <Preferences.h>
 
 namespace robodesk
 {
@@ -27,6 +28,13 @@ namespace robodesk
         _birthdayPlayedThisBoot = false;
         _wifiScreenStartMs = 0;
         _wifiFirebaseFetched = false;
+
+        Preferences prefs;
+        prefs.begin("robodesk", true);
+        _displayInverted = prefs.getBool("invert", false);
+        prefs.end();
+        _display.setInvert(_displayInverted);
+
         _animation.play(AnimationCatalog::get(AnimationId::Intro), 1, true);
     }
 
@@ -246,6 +254,17 @@ namespace robodesk
             _animation.stop();
             _screen = ScreenId::Battery;
             break;
+        case MenuAction::ToggleInvert:
+        {
+            _displayInverted = !_displayInverted;
+            _display.setInvert(_displayInverted);
+            
+            Preferences prefs;
+            prefs.begin("robodesk", false);
+            prefs.putBool("invert", _displayInverted);
+            prefs.end();
+            break;
+        }
         case MenuAction::ShowDomore:
         default:
             returnDomore(millis());
