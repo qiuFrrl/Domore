@@ -55,7 +55,7 @@ Project ini dibuat modular supaya `src/main.cpp` tetap kecil. Semua fitur utama 
 
 ## System
 
-- `include/system/WifiTypes.h`: struct SSID dan password menggunakan `char[]` fixed-size untuk mencegah heap fragmentation pada ESP32.
+- `include/system/WifiTypes.h`: struct SSID dan password menggunakan `String` untuk menyimpan data dinamis.
 - `include/system/WifiManager.h`: state machine WiFi non-blocking, dengan penampung kredensial gabungan antara `AppConfig.h` dan NVS `Preferences`.
 - `src/system/WifiManager.cpp`: koneksi WiFi fallback dan dinamis, koneksi *retry* dengan interval tegas 10 detik agar tidak membanjiri loop, serta fungsi `forceConnect()` untuk dipanggil dari menu WIFI.
 - `include/system/FirebaseManager.h` & `src/system/FirebaseManager.cpp`: HTTPS ke Firebase RTDB dengan `client.setInsecure()`. Mengambil JSON daftar Wifi dari (`/robot/wifi.json`). Sebelum menyimpannya ke `WifiManager` secara dinamis, sistem menghapus data Wifi dinamis lama di RAM dan NVS (`clearDynamicCredentials()`) agar sinkron.
