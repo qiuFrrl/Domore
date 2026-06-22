@@ -7,6 +7,7 @@ namespace robodesk
 enum class MenuAction : uint8_t
 {
     ShowDomore,
+    ShowCanvas,
     ShowTime,
     ShowWeather,
     ShowWifi,

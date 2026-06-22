@@ -50,6 +50,10 @@ namespace robodesk
             {"Swinging", 128, 64, SwingingallArray_LEN, SwingingallArray, 90},
             {"Yawn", 128, 64, YawnallArray_LEN, YawnallArray, 90},
         };
+
+        static_assert(
+            sizeof(CLIPS) / sizeof(CLIPS[0]) == static_cast<uint8_t>(AnimationId::Count),
+            "CLIPS array size must match AnimationId::Count — enum and array are out of sync!");
     }
 
     const AnimationClip &AnimationCatalog::get(AnimationId id)

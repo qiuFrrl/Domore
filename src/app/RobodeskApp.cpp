@@ -1,6 +1,7 @@
 #include "app/RobodeskApp.h"
 
 #include "config/AppConfig.h"
+#include "config/PairCode.h"
 #include "display/AnimationCatalog.h"
 #include <Preferences.h>
 
@@ -47,6 +48,8 @@ namespace robodesk
 
         _location.update(nowMs);
         _wifi.update(nowMs);
+        _firebase.updateStatus(_wifi, nowMs);
+        _canvas.update(nowMs, _wifi.isConnected(), PAIR_CODE);
         _time.update(nowMs);
         _weather.update(nowMs, _wifi.isConnected(), _location.current());
         _battery.update(nowMs);
@@ -93,6 +96,9 @@ namespace robodesk
                 _birthday,
                 wifiState,
                 wifiElapsedMs,
+                _canvas.buffer(),
+                _canvas.hasEver(),
+                _canvas.hasNew(),
                 nowMs);
         }
     }
@@ -253,6 +259,12 @@ namespace robodesk
             _domoreAnimations.stopHome();
             _animation.stop();
             _screen = ScreenId::Battery;
+            break;
+        case MenuAction::ShowCanvas:
+            _domoreAnimations.stopHome();
+            _animation.stop();
+            _screen = ScreenId::Canvas;
+            _canvas.markSeen();
             break;
         case MenuAction::ToggleInvert:
         {

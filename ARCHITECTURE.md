@@ -7,7 +7,7 @@ Project ini dibuat modular supaya `src/main.cpp` tetap kecil. Semua fitur utama 
 - TTP223 `OUT` -> GPIO4. Mode input aktif HIGH, jadi `BUTTON_ACTIVE_LOW = false`.
 - OLED SH1106 I2C SDA -> GPIO8.
 - OLED SH1106 I2C SCL -> GPIO9.
-- Battery monitor: `OUT+`/battery positive -> resistor 220k -> GPIO0/ADC -> resistor 220k -> `OUT-`/GND. Rasio pembagi 2:1, jadi baterai 4.2V terbaca sekitar 2.1V di ADC. Kalau kabel ADC dipindah, ubah `ROBODESK_BATTERY_ADC_PIN`.
+- Battery monitor: `OUT+`/battery positive -> resistor 220k -> GPIO3/ADC -> resistor 220k -> `OUT-`/GND. Rasio pembagi 2:1, jadi baterai 4.2V terbaca sekitar 2.1V di ADC. Kalau kabel ADC dipindah, ubah `ROBODESK_BATTERY_ADC_PIN`.
 
 ## Struktur Folder
 
@@ -55,17 +55,17 @@ Project ini dibuat modular supaya `src/main.cpp` tetap kecil. Semua fitur utama 
 
 ## System
 
-- `include/system/WifiTypes.h`: struct SSID dan password menggunakan `String` untuk menyimpan data dinamis.
+- `include/system/WifiTypes.h`: struct SSID dan password menggunakan `char[]` fixed-size untuk mencegah heap fragmentation pada ESP32.
 - `include/system/WifiManager.h`: state machine WiFi non-blocking, dengan penampung kredensial gabungan antara `AppConfig.h` dan NVS `Preferences`.
 - `src/system/WifiManager.cpp`: koneksi WiFi fallback dan dinamis, koneksi *retry* dengan interval tegas 10 detik agar tidak membanjiri loop, serta fungsi `forceConnect()` untuk dipanggil dari menu WIFI.
-- `include/system/FirebaseManager.h` & `src/system/FirebaseManager.cpp`: mengambil JSON daftar Wifi dari Firebase RTDB (`/robot/wifi.json`), lalu menyimpannya ke `WifiManager` secara dinamis.
+- `include/system/FirebaseManager.h` & `src/system/FirebaseManager.cpp`: HTTPS ke Firebase RTDB dengan verifikasi Root CA (GTS Root R1). Mengambil JSON daftar Wifi dari (`/robot/wifi.json`). Sebelum menyimpannya ke `WifiManager` secara dinamis, sistem menghapus data Wifi dinamis lama di RAM dan NVS (`clearDynamicCredentials()`) agar sinkron.
 - `include/system/TimeManager.h`: snapshot jam, tanggal, dan status valid.
 - `src/system/TimeManager.cpp`: setup NTP dan update waktu real-time.
 - `include/system/WeatherManager.h`: data cuaca, suhu, humidity, weather code, dan summary.
-- `src/system/WeatherManager.cpp`: ambil weather gratis dari Open-Meteo memakai HTTPS, `WiFiClientSecure`, `client.setInsecure()`, interval request 5 menit, debug error HTTP ke Serial, lalu parse JSON Open-Meteo dengan ArduinoJson.
+- `src/system/WeatherManager.cpp`: ambil weather gratis dari Open-Meteo memakai HTTPS, `WiFiClientSecure` dengan verifikasi Root CA (ISRG Root X1), interval request 5 menit, debug error HTTP ke Serial, lalu parse JSON Open-Meteo dengan ArduinoJson.
 - `include/system/LocationTypes.h`: struct koordinat.
 - `include/system/LocationManager.h`: deklarasi lokasi fallback dan lokasi dari phone.
-- `src/system/LocationManager.cpp`: fallback Bangkok dan override dari phone jika nanti dihubungkan.
+- `src/system/LocationManager.cpp`: fallback Palembang dan override dari phone jika nanti dihubungkan.
 - `include/system/BatteryManager.h` dan `src/system/BatteryManager.cpp`: baca tegangan baterai lewat pembagi 220k+220k ke ADC, averaging beberapa sampel, status low di 3.50V dan critical di 3.30V.
 
 ## Menambah Animasi
@@ -75,7 +75,7 @@ Project ini dibuat modular supaya `src/main.cpp` tetap kecil. Semua fitur utama 
 3. Tambahkan enum baru di `include/display/AnimationCatalog.h`.
 4. Tambahkan entry clip di array `CLIPS`.
 5. Pakai enum itu di `src/animation/AnimationSets.cpp`.
-6. Pastikan urutan enum `AnimationId` sama dengan urutan array `CLIPS`, karena `AnimationCatalog::get()` mengambil clip berdasarkan index enum.
+6. Pastikan urutan enum `AnimationId` sama dengan urutan array `CLIPS`, karena `AnimationCatalog::get()` mengambil clip berdasarkan index enum (terdapat `static_assert` untuk validasi otomatis saat compile).
 
 ## Perilaku Domore
 
@@ -86,11 +86,11 @@ Project ini dibuat modular supaya `src/main.cpp` tetap kecil. Semua fitur utama 
 - Tap: counter tap naik selama tap masih berdekatan, event diproses setelah gap pendek, lalu counter reset kalau tidak disentuh selama 5 detik.
 - Rule jam: tiga slot tersedia di `AnimationSets.cpp`; aktifkan `enabled = true` dan atur jamnya.
 - Rule cuaca/suhu: tiga slot tersedia di `AnimationSets.cpp`; aktifkan `enabled = true` dan atur range suhu/weather code.
-- Menu WIFI: saat masuk ke menu WIFI, jika tidak terkoneksi, alat mencoba menghubungkan (maksimal 10 detik/kredensial). Jika terkoneksi, menampilkan animasi "Connecting..." selama minimal 5 detik sambil menarik kredensial baru dari Firebase yang lalu disimpan permanen ke memori (NVS).
+- Menu WIFI: saat masuk ke menu WIFI, jika tidak terkoneksi, alat mencoba menghubungkan (maksimal 10 detik/kredensial). Jika terkoneksi, menampilkan animasi "Connecting..." selama minimal 5 detik sambil menarik kredensial baru dari Firebase. Kredensial dinamis lama akan dihapus bersih (dari RAM & NVS), lalu kredensial baru ditambahkan dan disimpan permanen, sehingga tidak memicu memori penuh akibat data lama.
 - AFK: jika tombol tidak disentuh 10 menit, jalankan satu animasi loop terus sampai tombol disentuh.
 - Saat AFK: tap memanggil animasi wake tap, hold memanggil animasi wake hold.
 - Hold dari layar Domore: tahan kurang dari 5 detik untuk animasi biasa, tahan 5 detik atau lebih untuk membuka menu.
-- Battery monitor: firmware membaca tegangan baterai dari pembagi 220k+220k ke GPIO0. Saat tegangan <= 3.50V layar Domore menampilkan `BAT`, dan saat <= 3.30V menampilkan tanda `!`. Proteksi TP4056 tetap menjadi cutoff hardware terakhir.
+- Battery monitor: firmware membaca tegangan baterai dari pembagi 220k+220k ke GPIO3 (pin ADC bersih, menghindari pin strapping dan pin TX UART). Saat tegangan <= 3.50V layar Domore menampilkan `BAT`, dan saat <= 3.30V menampilkan tanda `!`. Proteksi TP4056 tetap menjadi cutoff hardware terakhir.
 - 7 Oktober: setelah boot intro selesai, app cek tanggal sekali setelah waktu valid atau timeout birthday check. Kalau tanggal hari ini 7 Oktober dan belum pernah dimainkan di boot ini, tampilkan birthday scene, lalu lanjut satu animasi final dari file animation. Jika robot dimatikan lalu dinyalakan lagi pada hari yang sama, birthday scene akan muncul lagi sekali setelah intro.
 
 ## Algoritma Membuat Robot dari 0
@@ -106,7 +106,7 @@ Project ini dibuat modular supaya `src/main.cpp` tetap kecil. Semua fitur utama 
 9. Buat `include/input/InputManager.h` dan `src/input/InputManager.cpp`; baca TTP223 dengan debounce, bedakan tap sequence, hold pendek, dan hold 5 detik untuk menu.
 10. Buat `include/menu/MenuManager.h` dan `src/menu/MenuManager.cpp`; simpan daftar item menu dan action seperti `Domore`, `Time`, `Weather`, dan `WIFI`.
 11. Buat manager system satu per satu: `WifiManager`, `FirebaseManager`, `TimeManager`, `LocationManager`, dan `WeatherManager`.
-12. Untuk weather, mulai dari WiFi connect dulu, lalu request Open-Meteo dengan `WiFiClientSecure`, `client.setInsecure()`, `HTTPClient`, dan parse ArduinoJson.
+12. Untuk weather, mulai dari WiFi connect dulu, lalu request Open-Meteo dengan `WiFiClientSecure`, `client.setCACert()`, `HTTPClient`, dan parse ArduinoJson.
 13. Buat `include/animation/AnimationSets.h` dan `src/animation/AnimationSets.cpp`; isi pool animasi default, mapping tap count, animasi hold, animasi AFK, birthday, rule jam, dan rule cuaca.
 14. Buat `include/animation/DomoreAnimationManager.h` dan `src/animation/DomoreAnimationManager.cpp`; urus random idle, delay random, filler `Blank`, tap one-shot, hold one-shot, AFK loop, wake animation, dan pemilihan animasi dari rule jam/cuaca.
 15. Buat `include/display/BirthdayScene.h` dan `src/display/BirthdayScene.cpp`; scene ini berdiri sendiri dan selesai berdasarkan durasi.

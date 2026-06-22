@@ -6,6 +6,7 @@ namespace
 {
 const MenuItem MENU_ITEMS[] = {
     {"Domore", MenuAction::ShowDomore},
+    {"Domore's", MenuAction::ShowCanvas},
     {"Time", MenuAction::ShowTime},
     {"Weather", MenuAction::ShowWeather},
     {"WIFI", MenuAction::ShowWifi},

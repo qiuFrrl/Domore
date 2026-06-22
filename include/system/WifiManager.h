@@ -23,7 +23,8 @@ public:
     void begin(const WifiCredential *credentials, uint8_t credentialCount);
     void update(uint32_t nowMs);
 
-    void addCredential(const String& ssid, const String& password);
+    void addCredential(const char *ssid, const char *password);
+    void clearDynamicCredentials();
     void forceConnect();
 
     bool isConnected() const;
@@ -45,3 +46,4 @@ private:
     WifiState _state = WifiState::Idle;
 };
 }
+

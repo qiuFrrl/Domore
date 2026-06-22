@@ -15,6 +15,7 @@
 #include "system/WeatherManager.h"
 #include "system/WifiManager.h"
 #include "system/FirebaseManager.h"
+#include "system/CanvasManager.h"
 
 namespace robodesk
 {
@@ -55,6 +56,7 @@ private:
     LocationManager _location;
     BatteryManager _battery;
     FirebaseManager _firebase;
+    CanvasManager _canvas;
 
     ScreenId _screen = ScreenId::Boot;
     BootStage _bootStage = BootStage::Intro;

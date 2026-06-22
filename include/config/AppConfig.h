@@ -35,7 +35,7 @@ namespace robodesk
     constexpr uint16_t BUTTON_MENU_HOLD_MS = 5000;
 
 #ifndef ROBODESK_BATTERY_ADC_PIN
-#define ROBODESK_BATTERY_ADC_PIN 0
+#define ROBODESK_BATTERY_ADC_PIN 3  // GPIO3: clean ADC pin. Avoid GPIO0 (strapping) and GPIO1 (UART0 TX)
 #endif
 
     constexpr int BATTERY_ADC_PIN = ROBODESK_BATTERY_ADC_PIN;
@@ -61,8 +61,8 @@ namespace robodesk
     constexpr uint32_t TIME_REFRESH_MS = 1000;
 
     
-    constexpr float DEFAULT_LATITUDE = 13.7563f;
-    constexpr float DEFAULT_LONGITUDE = 100.5018f;
+    constexpr float DEFAULT_LATITUDE = -2.9761f;   // Palembang
+    constexpr float DEFAULT_LONGITUDE = 104.7754f;  // Palembang
     constexpr uint32_t PHONE_LOCATION_MAX_AGE_MS = 10UL * 60UL * 1000UL;
 
     constexpr uint32_t WEATHER_REFRESH_MS = 5UL * 60UL * 1000UL;

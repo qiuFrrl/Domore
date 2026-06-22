@@ -47,6 +47,9 @@ void DisplayManager::render(
     const BirthdayScene &birthday,
     WifiScreenState wifiState,
     uint32_t wifiElapsedMs,
+    const uint8_t* canvasBuffer,
+    bool canvasHasEver,
+    bool canvasHasNew,
     uint32_t nowMs)
 {
     _oled.clearBuffer();
@@ -74,9 +77,16 @@ void DisplayManager::render(
     case ScreenId::Battery:
         drawBattery(battery);
         break;
+    case ScreenId::Canvas:
+        drawCanvas(canvasBuffer, canvasHasEver);
+        break;
     case ScreenId::Domore:
     default:
         drawDomore(animation, time, weather, battery);
+        if (canvasHasNew && screen == ScreenId::Domore)
+        {
+            drawCanvasNotification();
+        }
         break;
     }
 
@@ -346,5 +356,23 @@ void DisplayManager::drawCentered(const char *text, int16_t y)
 
     const int16_t width = _oled.getStrWidth(text);
     _oled.drawStr((DISPLAY_WIDTH - width) / 2, y, text);
+}
+
+void DisplayManager::drawCanvas(const uint8_t* buffer, bool hasEver)
+{
+    if (!hasEver)
+    {
+        _oled.setFont(u8g2_font_6x10_tf);
+        drawCentered("No drawing yet", 36);
+        return;
+    }
+
+    _oled.drawXBM(0, 0, 128, 64, buffer);
+}
+
+void DisplayManager::drawCanvasNotification()
+{
+    _oled.setFont(u8g2_font_5x8_tf);
+    _oled.drawStr(122, 8, "!");
 }
 }

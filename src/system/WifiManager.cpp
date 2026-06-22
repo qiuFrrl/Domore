@@ -2,6 +2,7 @@
 
 #include "config/AppConfig.h"
 #include <Preferences.h>
+#include <string.h>
 
 namespace robodesk
 {
@@ -10,7 +11,12 @@ void WifiManager::begin(const WifiCredential *credentials, uint8_t credentialCou
     _credentials.clear();
     for (uint8_t i = 0; i < credentialCount; i++)
     {
-        _credentials.push_back({String(credentials[i].ssid), String(credentials[i].password)});
+        WifiCredential cred;
+        strncpy(cred.ssid, credentials[i].ssid, WIFI_SSID_MAX_LEN);
+        cred.ssid[WIFI_SSID_MAX_LEN - 1] = '\0';
+        strncpy(cred.password, credentials[i].password, WIFI_PASSWORD_MAX_LEN);
+        cred.password[WIFI_PASSWORD_MAX_LEN - 1] = '\0';
+        _credentials.push_back(cred);
     }
 
     loadPreferences();
@@ -32,13 +38,24 @@ void WifiManager::loadPreferences()
     uint32_t count = prefs.getUInt("count", 0);
     for (uint32_t i = 0; i < count; i++)
     {
-        String ssidKey = "s_" + String(i);
-        String passKey = "p_" + String(i);
-        String ssid = prefs.getString(ssidKey.c_str(), "");
-        String pass = prefs.getString(passKey.c_str(), "");
-        if (ssid.length() > 0)
+        char ssidKey[8];
+        char passKey[8];
+        snprintf(ssidKey, sizeof(ssidKey), "s_%lu", (unsigned long)i);
+        snprintf(passKey, sizeof(passKey), "p_%lu", (unsigned long)i);
+
+        WifiCredential cred;
+        memset(&cred, 0, sizeof(cred));
+
+        String ssidStr = prefs.getString(ssidKey, "");
+        String passStr = prefs.getString(passKey, "");
+
+        if (ssidStr.length() > 0)
         {
-            _credentials.push_back({ssid, pass});
+            strncpy(cred.ssid, ssidStr.c_str(), WIFI_SSID_MAX_LEN);
+            cred.ssid[WIFI_SSID_MAX_LEN - 1] = '\0';
+            strncpy(cred.password, passStr.c_str(), WIFI_PASSWORD_MAX_LEN);
+            cred.password[WIFI_PASSWORD_MAX_LEN - 1] = '\0';
+            _credentials.push_back(cred);
         }
     }
     prefs.end();
@@ -48,45 +65,66 @@ void WifiManager::savePreferences()
 {
     Preferences prefs;
     prefs.begin("wifi_db", false);
-    
+    prefs.clear();
+
     uint32_t dynamicCount = 0;
     if (_credentials.size() > WIFI_CREDENTIAL_COUNT)
     {
         dynamicCount = _credentials.size() - WIFI_CREDENTIAL_COUNT;
     }
-    
+
     prefs.putUInt("count", dynamicCount);
     for (uint32_t i = 0; i < dynamicCount; i++)
     {
-        String ssidKey = "s_" + String(i);
-        String passKey = "p_" + String(i);
-        const auto& cred = _credentials[WIFI_CREDENTIAL_COUNT + i];
-        prefs.putString(ssidKey.c_str(), cred.ssid);
-        prefs.putString(passKey.c_str(), cred.password);
+        char ssidKey[8];
+        char passKey[8];
+        snprintf(ssidKey, sizeof(ssidKey), "s_%lu", (unsigned long)i);
+        snprintf(passKey, sizeof(passKey), "p_%lu", (unsigned long)i);
+        const auto &cred = _credentials[WIFI_CREDENTIAL_COUNT + i];
+        prefs.putString(ssidKey, cred.ssid);
+        prefs.putString(passKey, cred.password);
     }
     prefs.end();
 }
 
-void WifiManager::addCredential(const String& ssid, const String& password)
+void WifiManager::addCredential(const char *ssid, const char *password)
 {
-    if (ssid.isEmpty()) return;
+    if (ssid == nullptr || ssid[0] == '\0') return;
 
-    for (const auto& cred : _credentials)
+    for (const auto &cred : _credentials)
     {
-        if (cred.ssid == ssid && cred.password == password)
+        if (strcmp(cred.ssid, ssid) == 0 && strcmp(cred.password, password) == 0)
         {
             return;
         }
     }
 
-    _credentials.push_back({ssid, password});
+    WifiCredential cred;
+    strncpy(cred.ssid, ssid, WIFI_SSID_MAX_LEN);
+    cred.ssid[WIFI_SSID_MAX_LEN - 1] = '\0';
+    strncpy(cred.password, password != nullptr ? password : "", WIFI_PASSWORD_MAX_LEN);
+    cred.password[WIFI_PASSWORD_MAX_LEN - 1] = '\0';
+    _credentials.push_back(cred);
     savePreferences();
+}
+
+void WifiManager::clearDynamicCredentials()
+{
+    if (_credentials.size() > WIFI_CREDENTIAL_COUNT)
+    {
+        _credentials.erase(_credentials.begin() + WIFI_CREDENTIAL_COUNT, _credentials.end());
+        if (_currentIndex >= _credentials.size())
+        {
+            _currentIndex = 0;
+        }
+        savePreferences();
+    }
 }
 
 void WifiManager::forceConnect()
 {
     if (!hasCredentials()) return;
-    
+
     _state = WifiState::Idle;
     _currentIndex = (_currentIndex + 1) % _credentials.size();
     _nextRetryAt = 0;
@@ -150,7 +188,7 @@ WifiState WifiManager::state() const
 const char *WifiManager::activeSsid() const
 {
     if (_currentIndex >= _credentials.size()) return "";
-    return _credentials[_currentIndex].ssid.c_str();
+    return _credentials[_currentIndex].ssid;
 }
 
 IPAddress WifiManager::ipAddress() const
@@ -173,11 +211,11 @@ void WifiManager::startNextConnection(uint32_t nowMs)
 
         _currentIndex = index;
         WiFi.disconnect(false, false);
-        WiFi.begin(_credentials[_currentIndex].ssid.c_str(), _credentials[_currentIndex].password.c_str());
+        WiFi.begin(_credentials[_currentIndex].ssid, _credentials[_currentIndex].password);
         _connectStartedAt = nowMs;
         _state = WifiState::Connecting;
-        
-        Serial.printf("WifiManager: Connecting to %s\n", _credentials[_currentIndex].ssid.c_str());
+
+        Serial.printf("WifiManager: Connecting to %s\n", _credentials[_currentIndex].ssid);
         return;
     }
 
@@ -187,6 +225,6 @@ void WifiManager::startNextConnection(uint32_t nowMs)
 bool WifiManager::credentialIsUsable(size_t index) const
 {
     if (index >= _credentials.size()) return false;
-    return !_credentials[index].ssid.isEmpty();
+    return _credentials[index].ssid[0] != '\0';
 }
 }

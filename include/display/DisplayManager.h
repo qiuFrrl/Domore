@@ -21,7 +21,8 @@ enum class ScreenId : uint8_t
     Weather,
     Birthday,
     Wifi,
-    Battery
+    Battery,
+    Canvas
 };
 
 enum class WifiScreenState : uint8_t
@@ -49,6 +50,9 @@ public:
         const BirthdayScene &birthday,
         WifiScreenState wifiState,
         uint32_t wifiElapsedMs,
+        const uint8_t* canvasBuffer,
+        bool canvasHasEver,
+        bool canvasHasNew,
         uint32_t nowMs);
 
     U8G2 &raw();
@@ -66,6 +70,8 @@ private:
     void drawStatusBar(const TimeSnapshot &time, const WeatherData &weather);
     void drawBatteryWarning(const BatteryStatus &battery);
     void drawCentered(const char *text, int16_t y);
+    void drawCanvas(const uint8_t* buffer, bool hasEver);
+    void drawCanvasNotification();
 
     U8G2_SH1106_128X64_NONAME_F_HW_I2C _oled;
     uint32_t _lastRenderAt = 0;
