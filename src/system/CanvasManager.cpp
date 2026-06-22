@@ -5,9 +5,6 @@
 
 #include "database.h"
 
-// Defined in FirebaseManager.cpp
-extern const char FIREBASE_ROOT_CA[] PROGMEM;
-
 namespace robodesk
 {
 void CanvasManager::update(uint32_t nowMs, bool wifiConnected, const char *pairCode)
@@ -53,7 +50,7 @@ const uint8_t *CanvasManager::buffer() const
 bool CanvasManager::pollUpdatedAt(const char *pairCode)
 {
     WiFiClientSecure client;
-    client.setCACert(FIREBASE_ROOT_CA);
+    client.setInsecure();
 
     HTTPClient http;
     http.setTimeout(4000);
@@ -97,7 +94,7 @@ bool CanvasManager::pollUpdatedAt(const char *pairCode)
 void CanvasManager::fetchPixels(const char *pairCode)
 {
     WiFiClientSecure client;
-    client.setCACert(FIREBASE_ROOT_CA);
+    client.setInsecure();
 
     HTTPClient http;
     http.setTimeout(6000);

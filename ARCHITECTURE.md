@@ -58,11 +58,11 @@ Project ini dibuat modular supaya `src/main.cpp` tetap kecil. Semua fitur utama 
 - `include/system/WifiTypes.h`: struct SSID dan password menggunakan `char[]` fixed-size untuk mencegah heap fragmentation pada ESP32.
 - `include/system/WifiManager.h`: state machine WiFi non-blocking, dengan penampung kredensial gabungan antara `AppConfig.h` dan NVS `Preferences`.
 - `src/system/WifiManager.cpp`: koneksi WiFi fallback dan dinamis, koneksi *retry* dengan interval tegas 10 detik agar tidak membanjiri loop, serta fungsi `forceConnect()` untuk dipanggil dari menu WIFI.
-- `include/system/FirebaseManager.h` & `src/system/FirebaseManager.cpp`: HTTPS ke Firebase RTDB dengan verifikasi Root CA (GTS Root R1). Mengambil JSON daftar Wifi dari (`/robot/wifi.json`). Sebelum menyimpannya ke `WifiManager` secara dinamis, sistem menghapus data Wifi dinamis lama di RAM dan NVS (`clearDynamicCredentials()`) agar sinkron.
+- `include/system/FirebaseManager.h` & `src/system/FirebaseManager.cpp`: HTTPS ke Firebase RTDB dengan `client.setInsecure()`. Mengambil JSON daftar Wifi dari (`/robot/wifi.json`). Sebelum menyimpannya ke `WifiManager` secara dinamis, sistem menghapus data Wifi dinamis lama di RAM dan NVS (`clearDynamicCredentials()`) agar sinkron.
 - `include/system/TimeManager.h`: snapshot jam, tanggal, dan status valid.
 - `src/system/TimeManager.cpp`: setup NTP dan update waktu real-time.
 - `include/system/WeatherManager.h`: data cuaca, suhu, humidity, weather code, dan summary.
-- `src/system/WeatherManager.cpp`: ambil weather gratis dari Open-Meteo memakai HTTPS, `WiFiClientSecure` dengan verifikasi Root CA (ISRG Root X1), interval request 5 menit, debug error HTTP ke Serial, lalu parse JSON Open-Meteo dengan ArduinoJson.
+- `src/system/WeatherManager.cpp`: ambil weather gratis dari Open-Meteo memakai HTTPS, `WiFiClientSecure` dengan `client.setInsecure()`, interval request 5 menit, debug error HTTP ke Serial, lalu parse JSON Open-Meteo dengan ArduinoJson.
 - `include/system/LocationTypes.h`: struct koordinat.
 - `include/system/LocationManager.h`: deklarasi lokasi fallback dan lokasi dari phone.
 - `src/system/LocationManager.cpp`: fallback Palembang dan override dari phone jika nanti dihubungkan.
@@ -106,7 +106,7 @@ Project ini dibuat modular supaya `src/main.cpp` tetap kecil. Semua fitur utama 
 9. Buat `include/input/InputManager.h` dan `src/input/InputManager.cpp`; baca TTP223 dengan debounce, bedakan tap sequence, hold pendek, dan hold 5 detik untuk menu.
 10. Buat `include/menu/MenuManager.h` dan `src/menu/MenuManager.cpp`; simpan daftar item menu dan action seperti `Domore`, `Time`, `Weather`, dan `WIFI`.
 11. Buat manager system satu per satu: `WifiManager`, `FirebaseManager`, `TimeManager`, `LocationManager`, dan `WeatherManager`.
-12. Untuk weather, mulai dari WiFi connect dulu, lalu request Open-Meteo dengan `WiFiClientSecure`, `client.setCACert()`, `HTTPClient`, dan parse ArduinoJson.
+12. Untuk weather, mulai dari WiFi connect dulu, lalu request Open-Meteo dengan `WiFiClientSecure`, `client.setInsecure()`, `HTTPClient`, dan parse ArduinoJson.
 13. Buat `include/animation/AnimationSets.h` dan `src/animation/AnimationSets.cpp`; isi pool animasi default, mapping tap count, animasi hold, animasi AFK, birthday, rule jam, dan rule cuaca.
 14. Buat `include/animation/DomoreAnimationManager.h` dan `src/animation/DomoreAnimationManager.cpp`; urus random idle, delay random, filler `Blank`, tap one-shot, hold one-shot, AFK loop, wake animation, dan pemilihan animasi dari rule jam/cuaca.
 15. Buat `include/display/BirthdayScene.h` dan `src/display/BirthdayScene.cpp`; scene ini berdiri sendiri dan selesai berdasarkan durasi.
