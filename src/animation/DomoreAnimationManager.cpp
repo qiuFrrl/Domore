@@ -10,7 +10,7 @@ namespace robodesk
 {
     namespace
     {
-        constexpr uint8_t MAX_HOME_CANDIDATES = 11;
+        constexpr uint8_t MAX_HOME_CANDIDATES = static_cast<uint8_t>(AnimationId::Count);
     }
 
     void DomoreAnimationManager::begin(AnimationPlayer &player)

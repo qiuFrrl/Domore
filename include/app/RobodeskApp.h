@@ -1,6 +1,8 @@
 #pragma once
 
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 #include "animation/DomoreAnimationManager.h"
 #include "display/AnimationCatalog.h"
@@ -28,6 +30,17 @@ enum class BootStage : uint8_t
     Done
 };
 
+// Data yang dibagi antara loop() utama dan networkTask().
+// Mutex menjamin akses yang aman agar tidak terjadi crash.
+struct NetworkShared
+{
+    SemaphoreHandle_t mutex = nullptr;
+    bool wifiConnected = false;
+    bool canvasHasNew = false;
+    bool canvasHasEver = false;
+    uint8_t canvasBuffer[1024] = {};
+};
+
 class RobodeskApp
 {
 public:
@@ -44,6 +57,10 @@ private:
     bool shouldStartBirthday() const;
     void updateWifi(uint32_t nowMs);
 
+    // FreeRTOS network task: mengurus heartbeat Firebase dan polling Canvas
+    // di belakang layar agar animasi tidak pernah freeze.
+    static void networkTask(void *pvParameters);
+
     DisplayManager _display;
     AnimationPlayer _animation;
     DomoreAnimationManager _domoreAnimations;
@@ -58,6 +75,8 @@ private:
     FirebaseManager _firebase;
     CanvasManager _canvas;
 
+    NetworkShared _networkShared;
+
     ScreenId _screen = ScreenId::Boot;
     BootStage _bootStage = BootStage::Intro;
     uint32_t _bootIntroFinishedAt = 0;
@@ -66,5 +85,11 @@ private:
     uint32_t _wifiScreenStartMs = 0;
     bool _wifiFirebaseFetched = false;
     bool _displayInverted = false;
+
+    // Penampung lokal thread-safe: data disalin dari _networkShared
+    // dengan mutex, lalu diteruskan ke display.render() tanpa mutex.
+    uint8_t _localCanvasBuffer[1024] = {};
+    bool _localCanvasHasEver = false;
+    bool _localCanvasHasNew = false;
 };
 }

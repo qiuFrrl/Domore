@@ -13,18 +13,18 @@ Project ini dibuat modular supaya `src/main.cpp` tetap kecil. Semua fitur utama 
 
 - `src/main.cpp`: entry point Arduino. Hanya start Serial, panggil `RobodeskApp::begin()`, lalu `RobodeskApp::update()`.
 - `include/config/AppConfig.h`: semua konfigurasi pin, WiFi, interval tombol, delay random animasi, NTP, lokasi fallback, dan weather refresh.
-- `include/app` dan `src/app`: alur aplikasi utama, routing screen, startup intro, menu, birthday, dan koneksi antar manager.
+- `include/config/PairCode.h`: `PAIR_CODE` (kode unik robot untuk Firebase) dan `PAIR_ID` (nama ID robot untuk login web database).
+- `include/app` dan `src/app`: alur aplikasi utama, routing screen, startup intro, menu, birthday, koneksi antar manager, dan FreeRTOS Network Task untuk heartbeat Firebase serta polling Canvas.
 - `include/animation` dan `src/animation`: daftar animasi yang boleh dipakai dan logic pemilihan animasi Domore.
 - `include/display` dan `src/display`: OLED, player bitmap, katalog asset animasi, gambar weather icon, dan birthday scene.
 - `include/input` dan `src/input`: pembacaan TTP223, debounce, tap sequence, reset tap setelah 5 detik idle, hold pendek, dan hold 5 detik untuk menu.
 - `include/menu` dan `src/menu`: daftar menu dan selected index.
-- `include/system` dan `src/system`: WiFi, Firebase (untuk sinkronisasi kredensial Wifi), NTP time, weather API, lokasi, dan monitor baterai.
-- `include/assets/animation`: file bitmap animasi hasil export. Jangan diedit manual.
+- `include/system` dan `src/system`: WiFi, Firebase (untuk sinkronisasi kredensial Wifi), NTP time, weather API, lokasi, monitor baterai, dan Canvas (gambar kiriman).
 
 ## File Utama
 
-- `include/app/RobodeskApp.h`: deklarasi class aplikasi utama dan semua manager yang dipakai.
-- `src/app/RobodeskApp.cpp`: mengatur boot sequence `Intro.h` -> tahan frame akhir 2 detik -> `Excited` sekali, cek birthday sekali setelah boot intro selesai dengan wait NTP maksimal 15 detik, update manager, pindah screen, input tombol, dan render display.
+- `include/app/RobodeskApp.h`: deklarasi class aplikasi utama, semua manager yang dipakai, `struct NetworkShared` (data bersama antara loop utama dan Network Task), buffer lokal canvas thread-safe (`_localCanvasBuffer`, `_localCanvasHasEver`, `_localCanvasHasNew`), dan deklarasi `static void networkTask(void*)` untuk FreeRTOS.
+- `src/app/RobodeskApp.cpp`: mengatur boot sequence `Intro.h` -> tahan frame akhir 2 detik -> `Excited` sekali, cek birthday sekali setelah boot intro selesai dengan wait NTP maksimal 15 detik, update manager, pindah screen, input tombol, render display, dan meluncurkan FreeRTOS Network Task dengan stack 8KB.
 - `src/main.cpp`: loop Arduino yang bersih dan pendek.
 
 ## Animation System
@@ -37,7 +37,7 @@ Project ini dibuat modular supaya `src/main.cpp` tetap kecil. Semua fitur utama 
 - `include/animation/AnimationSets.h`: deklarasi daftar/rule animasi yang mudah diganti.
 - `src/animation/AnimationSets.cpp`: tempat edit animasi default, animasi tap 1/3/5/7/9, hold, AFK, wake, birthday final, rule jam, dan rule cuaca.
 - `include/animation/DomoreAnimationManager.h`: manager animasi Domore.
-- `src/animation/DomoreAnimationManager.cpp`: memilih animasi default secara random dari pool, delay random 2.5-8 detik, menjalankan `Blank` sebagai animasi penunggu setelah setiap one-shot selesai, menambah animasi dari rule jam/cuaca, dan mode AFK 10 menit yang loop sampai tombol disentuh.
+- `src/animation/DomoreAnimationManager.cpp`: memilih animasi default secara random dari pool, delay random 2.5-8 detik, menjalankan `Blank` sebagai animasi penunggu setelah setiap one-shot selesai, menambah animasi dari rule jam/cuaca, dan mode AFK 10 menit yang loop sampai tombol disentuh. `MAX_HOME_CANDIDATES` menggunakan `AnimationId::Count` agar selalu sinkron dengan jumlah total animasi di katalog.
 
 ## Display
 
@@ -56,17 +56,18 @@ Project ini dibuat modular supaya `src/main.cpp` tetap kecil. Semua fitur utama 
 ## System
 
 - `include/system/WifiTypes.h`: struct SSID dan password menggunakan `String` untuk menyimpan data dinamis.
-- `include/system/WifiManager.h`: state machine WiFi non-blocking, dengan penampung kredensial gabungan antara `AppConfig.h` dan NVS `Preferences`.
-- `src/system/WifiManager.cpp`: koneksi WiFi fallback dan dinamis, koneksi *retry* dengan interval tegas 10 detik agar tidak membanjiri loop, serta fungsi `forceConnect()` untuk dipanggil dari menu WIFI.
-- `include/system/FirebaseManager.h` & `src/system/FirebaseManager.cpp`: HTTPS ke Firebase RTDB dengan `client.setInsecure()`. Mengambil JSON daftar Wifi dari (`/robot/wifi.json`). Sebelum menyimpannya ke `WifiManager` secara dinamis, sistem menghapus data Wifi dinamis lama di RAM dan NVS (`clearDynamicCredentials()`) agar sinkron.
+- `include/system/WifiManager.h`: state machine WiFi non-blocking, dengan penampung kredensial gabungan antara `AppConfig.h` dan NVS `Preferences`. Menyediakan `credentialsMatchList()` untuk komparasi sebelum menulis NVS.
+- `src/system/WifiManager.cpp`: koneksi WiFi fallback dan dinamis, koneksi *retry* dengan interval tegas 10 detik agar tidak membanjiri loop, serta fungsi `forceConnect()` untuk dipanggil dari menu WIFI. Fungsi `credentialsMatchList()` membandingkan daftar kredensial dinamis dengan data baru dari Firebase; jika sama persis, `savePreferences()` tidak dipanggil sehingga memori Flash NVS tidak aus sia-sia.
+- `include/system/FirebaseManager.h` & `src/system/FirebaseManager.cpp`: HTTPS ke Firebase RTDB dengan `client.setInsecure()`. Mengambil JSON daftar Wifi dari (`/robot/wifi.json`) menggunakan stream parsing langsung (`deserializeJson(doc, http.getStream())`) agar tidak membuang RAM untuk buffer String. Sebelum menyimpan ke `WifiManager`, sistem membandingkan data baru dengan lama via `credentialsMatchList()`; `clear` dan `save` hanya dieksekusi jika ada perubahan. Menyediakan `updateStatus_raw()` untuk dipakai oleh `networkTask` tanpa perlu mengakses `WifiManager` dari Core berbeda.
 - `include/system/TimeManager.h`: snapshot jam, tanggal, dan status valid.
 - `src/system/TimeManager.cpp`: setup NTP dan update waktu real-time.
-- `include/system/WeatherManager.h`: data cuaca, suhu, humidity, weather code, dan summary.
-- `src/system/WeatherManager.cpp`: ambil weather gratis dari Open-Meteo memakai HTTPS, `WiFiClientSecure` dengan `client.setInsecure()`, interval request 5 menit, debug error HTTP ke Serial, lalu parse JSON Open-Meteo dengan ArduinoJson.
+- `include/system/WeatherManager.h`: data cuaca, suhu, humidity, weather code, dan summary. Update cuaca **hanya dipanggil saat layar Weather aktif** untuk menghemat baterai dan mencegah animasi Domore freeze.
+- `src/system/WeatherManager.cpp`: ambil weather gratis dari Open-Meteo memakai HTTPS, `WiFiClientSecure` dengan `client.setInsecure()`, interval request 5 menit, debug error HTTP ke Serial, lalu parse JSON Open-Meteo dengan ArduinoJson menggunakan stream parsing langsung.
 - `include/system/LocationTypes.h`: struct koordinat.
 - `include/system/LocationManager.h`: deklarasi lokasi fallback dan lokasi dari phone.
 - `src/system/LocationManager.cpp`: fallback Palembang dan override dari phone jika nanti dihubungkan.
 - `include/system/BatteryManager.h` dan `src/system/BatteryManager.cpp`: baca tegangan baterai lewat pembagi 220k+220k ke ADC, averaging beberapa sampel, status low di 3.50V dan critical di 3.30V.
+- `include/system/CanvasManager.h` dan `src/system/CanvasManager.cpp`: polling gambar Canvas dari Firebase setiap 8 detik. **Dijalankan sepenuhnya di dalam FreeRTOS Network Task**, bukan di `loop()` utama, sehingga animasi robot tidak pernah freeze saat menunggu respons HTTP. Data canvas disalin ke buffer lokal thread-safe (`_localCanvasBuffer`) di `loop()` utama dengan proteksi mutex sebelum diteruskan ke OLED agar tidak terjadi race condition.
 
 ## Menambah Animasi
 
@@ -86,7 +87,8 @@ Project ini dibuat modular supaya `src/main.cpp` tetap kecil. Semua fitur utama 
 - Tap: counter tap naik selama tap masih berdekatan, event diproses setelah gap pendek, lalu counter reset kalau tidak disentuh selama 5 detik.
 - Rule jam: tiga slot tersedia di `AnimationSets.cpp`; aktifkan `enabled = true` dan atur jamnya.
 - Rule cuaca/suhu: tiga slot tersedia di `AnimationSets.cpp`; aktifkan `enabled = true` dan atur range suhu/weather code.
-- Menu WIFI: saat masuk ke menu WIFI, jika tidak terkoneksi, alat mencoba menghubungkan (maksimal 10 detik/kredensial). Jika terkoneksi, menampilkan animasi "Connecting..." selama minimal 5 detik sambil menarik kredensial baru dari Firebase. Kredensial dinamis lama akan dihapus bersih (dari RAM & NVS), lalu kredensial baru ditambahkan dan disimpan permanen, sehingga tidak memicu memori penuh akibat data lama.
+- FreeRTOS Network Task: di `begin()`, `xTaskCreatePinnedToCore` meluncurkan `networkTask` dengan stack 8KB. Task ini mengurus heartbeat Firebase setiap 30 detik dan polling Canvas setiap 8 detik. Data dibagi ke loop utama melalui `NetworkShared` struct yang dilindungi mutex. `loop()` utama menyalin data canvas dari `NetworkShared` ke buffer lokal (`_localCanvasBuffer`) dengan mutex, lalu meneruskan buffer lokal ke `display.render()` agar layar OLED tidak pernah membaca data yang sedang ditulis oleh Network Task.
+- Menu WIFI: saat masuk ke menu WIFI, jika tidak terkoneksi, alat mencoba menghubungkan (maksimal 10 detik/kredensial). Jika terkoneksi, menampilkan animasi "Connecting..." selama minimal 5 detik sambil menarik kredensial baru dari Firebase menggunakan stream JSON parsing. Kredensial dinamis lama hanya dihapus jika ada perubahan nyata (dibandingkan via `credentialsMatchList()`), sehingga memori Flash NVS tidak aus akibat penulisan berulang yang tidak perlu.
 - AFK: jika tombol tidak disentuh 10 menit, jalankan satu animasi loop terus sampai tombol disentuh.
 - Saat AFK: tap memanggil animasi wake tap, hold memanggil animasi wake hold.
 - Hold dari layar Domore: tahan kurang dari 5 detik untuk animasi biasa, tahan 5 detik atau lebih untuk membuka menu.

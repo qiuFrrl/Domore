@@ -4,6 +4,7 @@
 #include "config/PairCode.h"
 #include "display/AnimationCatalog.h"
 #include <Preferences.h>
+#include <string.h>
 
 namespace robodesk
 {
@@ -36,6 +37,20 @@ namespace robodesk
         prefs.end();
         _display.setInvert(_displayInverted);
 
+        // Buat mutex untuk proteksi data shared antara loop() dan networkTask()
+        _networkShared.mutex = xSemaphoreCreateMutex();
+
+        // Launch network task di Core 0 (loop() Arduino berjalan di Core 1)
+        // Stack 6KB cukup untuk WiFiClientSecure + HTTPClient + ArduinoJson
+        xTaskCreatePinnedToCore(
+            networkTask,
+            "NetworkTask",
+            8192,
+            &_networkShared,
+            1,
+            nullptr,
+            0);
+
         _animation.play(AnimationCatalog::get(AnimationId::Intro), 1, true);
     }
 
@@ -48,12 +63,23 @@ namespace robodesk
 
         _location.update(nowMs);
         _wifi.update(nowMs);
-        _firebase.updateStatus(_wifi, nowMs);
-        _canvas.update(nowMs, _wifi.isConnected(), PAIR_CODE);
         _time.update(nowMs);
-        _weather.update(nowMs, _wifi.isConnected(), _location.current());
         _battery.update(nowMs);
         _animation.update(nowMs);
+
+        // Bagikan status koneksi WiFi ke networkTask() dan
+        // salin data canvas ke buffer lokal secara aman.
+        if (_networkShared.mutex && xSemaphoreTake(_networkShared.mutex, 0) == pdTRUE)
+        {
+            _networkShared.wifiConnected = _wifi.isConnected();
+            _localCanvasHasEver = _networkShared.canvasHasEver;
+            _localCanvasHasNew = _networkShared.canvasHasNew;
+            if (_localCanvasHasEver)
+            {
+                memcpy(_localCanvasBuffer, _networkShared.canvasBuffer, 1024);
+            }
+            xSemaphoreGive(_networkShared.mutex);
+        }
 
         if (_screen == ScreenId::Boot)
         {
@@ -63,6 +89,11 @@ namespace robodesk
         if (_screen == ScreenId::Domore)
         {
             _domoreAnimations.updateHome(nowMs, _time.snapshot(), _weather.data());
+        }
+        else if (_screen == ScreenId::Weather)
+        {
+            // Cuaca hanya di-refresh saat user membuka layar Weather
+            _weather.update(nowMs, _wifi.isConnected(), _location.current());
         }
         else if (_screen == ScreenId::Birthday)
         {
@@ -96,9 +127,9 @@ namespace robodesk
                 _birthday,
                 wifiState,
                 wifiElapsedMs,
-                _canvas.buffer(),
-                _canvas.hasEver(),
-                _canvas.hasNew(),
+                _localCanvasBuffer,
+                _localCanvasHasEver,
+                _localCanvasHasNew,
                 nowMs);
         }
     }
@@ -264,7 +295,13 @@ namespace robodesk
             _domoreAnimations.stopHome();
             _animation.stop();
             _screen = ScreenId::Canvas;
-            _canvas.markSeen();
+            // Reset flag hasNew di shared data dan lokal
+            if (_networkShared.mutex && xSemaphoreTake(_networkShared.mutex, portMAX_DELAY) == pdTRUE)
+            {
+                _networkShared.canvasHasNew = false;
+                xSemaphoreGive(_networkShared.mutex);
+            }
+            _localCanvasHasNew = false;
             break;
         case MenuAction::ToggleInvert:
         {
@@ -327,5 +364,62 @@ namespace robodesk
                time.day == BIRTHDAY_DAY &&
                time.month == BIRTHDAY_MONTH &&
                !_birthdayPlayedThisBoot;
+    }
+
+    // =============================================================
+    // FreeRTOS Network Task
+    // Berjalan di Core 0, terpisah dari loop() Arduino di Core 1.
+    // Mengurus heartbeat Firebase (setiap 30 detik) dan polling
+    // Canvas baru (setiap 8 detik) tanpa pernah memblokir animasi.
+    // =============================================================
+    void RobodeskApp::networkTask(void *pvParameters)
+    {
+        NetworkShared *shared = static_cast<NetworkShared *>(pvParameters);
+
+        // Manager lokal milik task ini sendiri — tidak ada sharing dengan loop()
+        FirebaseManager firebase;
+        CanvasManager canvas;
+
+        bool wasConnected = false;
+
+        for (;;)
+        {
+            const uint32_t nowMs = millis();
+
+            // Baca status WiFi dari shared data secara aman
+            bool wifiConnected = false;
+            if (xSemaphoreTake(shared->mutex, pdMS_TO_TICKS(10)) == pdTRUE)
+            {
+                wifiConnected = shared->wifiConnected;
+                xSemaphoreGive(shared->mutex);
+            }
+
+            // Serahkan semua logika heartbeat/online/offline ke FirebaseManager
+            firebase.updateStatus_raw(wifiConnected, wasConnected, nowMs);
+
+            if (wifiConnected)
+            {
+                // --- Polling Canvas ---
+                canvas.update(nowMs, true, PAIR_CODE);
+
+                // Salin hasil canvas ke shared data secara aman
+                if (xSemaphoreTake(shared->mutex, pdMS_TO_TICKS(10)) == pdTRUE)
+                {
+                    shared->canvasHasEver = canvas.hasEver();
+                    if (canvas.hasNew())
+                    {
+                        shared->canvasHasNew = true;
+                        memcpy(shared->canvasBuffer, canvas.buffer(), 1024);
+                        canvas.markSeen();
+                    }
+                    xSemaphoreGive(shared->mutex);
+                }
+            }
+
+            wasConnected = wifiConnected;
+
+            // Yield selama 500ms agar Core 0 tidak 100% busy
+            vTaskDelay(pdMS_TO_TICKS(500));
+        }
     }
 }

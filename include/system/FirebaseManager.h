@@ -11,7 +11,11 @@ public:
     void fetchWifi(WifiManager &wifiManager);
     void updateStatus(WifiManager &wifiManager, uint32_t nowMs);
 
-    static constexpr uint32_t HEARTBEAT_INTERVAL_MS = 60000; // 1 minute
+    // Versi raw untuk networkTask: menerima flag koneksi langsung
+    // tanpa perlu mengakses WifiManager dari thread berbeda.
+    void updateStatus_raw(bool connected, bool wasConnected, uint32_t nowMs);
+
+    static constexpr uint32_t HEARTBEAT_INTERVAL_MS = 30000; // 30 seconds
 
 private:
     void setStatus(const char *status);

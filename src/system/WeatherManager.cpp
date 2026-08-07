@@ -85,11 +85,9 @@ namespace robodesk
             return false;
         }
 
-        const String payload = http.getString();
+        DynamicJsonDocument doc(768);
+        const DeserializationError error = deserializeJson(doc, http.getStream());
         http.end();
-
-        StaticJsonDocument<768> doc;
-        const DeserializationError error = deserializeJson(doc, payload);
 
         if (error)
         {

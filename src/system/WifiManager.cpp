@@ -108,6 +108,30 @@ void WifiManager::clearDynamicCredentials()
     }
 }
 
+bool WifiManager::credentialsMatchList(const std::vector<WifiCredential> &incoming) const
+{
+    const size_t dynamicStart = WIFI_CREDENTIAL_COUNT;
+    const size_t dynamicCount = (_credentials.size() > dynamicStart)
+                                    ? _credentials.size() - dynamicStart
+                                    : 0;
+
+    if (dynamicCount != incoming.size())
+    {
+        return false;
+    }
+
+    for (size_t i = 0; i < incoming.size(); i++)
+    {
+        const auto &existing = _credentials[dynamicStart + i];
+        if (existing.ssid != incoming[i].ssid || existing.password != incoming[i].password)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void WifiManager::forceConnect()
 {
     if (!hasCredentials()) return;

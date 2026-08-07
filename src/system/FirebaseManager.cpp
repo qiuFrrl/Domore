@@ -3,9 +3,11 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <vector>
 
 #include "database.h"
 #include "config/PairCode.h"
+#include "system/WifiTypes.h"
 
 namespace robodesk
 {
@@ -39,11 +41,9 @@ void FirebaseManager::fetchWifi(WifiManager &wifiManager)
         return;
     }
 
-    const String payload = http.getString();
-    http.end();
-
     DynamicJsonDocument doc(2048);
-    const DeserializationError error = deserializeJson(doc, payload);
+    const DeserializationError error = deserializeJson(doc, http.getStream());
+    http.end();
 
     if (error)
     {
@@ -51,8 +51,8 @@ void FirebaseManager::fetchWifi(WifiManager &wifiManager)
         return;
     }
 
-    wifiManager.clearDynamicCredentials();
-
+    // Kumpulkan daftar baru dari Firebase ke vector sementara dulu
+    std::vector<WifiCredential> incoming;
     JsonObject root = doc.as<JsonObject>();
     for (JsonPair kv : root)
     {
@@ -63,10 +63,50 @@ void FirebaseManager::fetchWifi(WifiManager &wifiManager)
             const char *password = wifiObj["password"] | "";
             if (ssid[0] != '\0')
             {
-                wifiManager.addCredential(ssid, password);
-                Serial.printf("FirebaseManager: Fetched %s\n", ssid);
+                WifiCredential cred;
+                cred.ssid = ssid;
+                cred.password = password;
+                incoming.push_back(cred);
             }
         }
+    }
+
+    // Jika data sama persis dengan yang ada, tidak perlu tulis NVS
+    if (wifiManager.credentialsMatchList(incoming))
+    {
+        Serial.println("FirebaseManager: WiFi credentials unchanged, skipping NVS write");
+        return;
+    }
+
+    // Ada perubahan, bersihkan lama dan simpan yang baru
+    wifiManager.clearDynamicCredentials();
+    for (const auto &cred : incoming)
+    {
+        wifiManager.addCredential(cred.ssid, cred.password);
+        Serial.printf("FirebaseManager: Fetched %s\n", cred.ssid.c_str());
+    }
+}
+
+void FirebaseManager::updateStatus_raw(bool connected, bool wasConnected, uint32_t nowMs)
+{
+    // WiFi baru terkoneksi: kirim status online langsung
+    if (connected && !wasConnected)
+    {
+        setStatus("online");
+        _statusSynced = true;
+        _lastHeartbeatMs = nowMs;
+    }
+    // WiFi baru putus
+    else if (!connected && wasConnected && _statusSynced)
+    {
+        _statusSynced = false;
+        Serial.println("FirebaseManager: WiFi lost (networkTask)");
+    }
+    // Heartbeat periodik
+    else if (connected && _statusSynced && (nowMs - _lastHeartbeatMs >= HEARTBEAT_INTERVAL_MS))
+    {
+        sendHeartbeat();
+        _lastHeartbeatMs = nowMs;
     }
 }
 
@@ -135,7 +175,7 @@ void FirebaseManager::setStatus(const char *status)
 void FirebaseManager::sendHeartbeat()
 {
     WiFiClientSecure client;
-    client.setCACert(FIREBASE_ROOT_CA);
+    client.setInsecure();
 
     HTTPClient http;
     http.setTimeout(4000);

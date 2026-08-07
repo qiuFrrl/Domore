@@ -25,6 +25,7 @@ public:
 
     void addCredential(const String &ssid, const String &password);
     void clearDynamicCredentials();
+    bool credentialsMatchList(const std::vector<WifiCredential> &incoming) const;
     void forceConnect();
 
     bool isConnected() const;
