@@ -5,3 +5,4 @@
 .vscode/ipch
 include/database.h
 include/config/PairCode.h
+ARCHITECTURE.md
